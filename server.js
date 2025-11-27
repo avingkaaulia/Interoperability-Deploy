@@ -156,9 +156,9 @@ app.delete('/movies/:id', [authenticateToken, authorizeRole('admin')], async (re
 
 // === DIRECTOR ROUTES (TUGAS PRAKTIKUM) ===
 
-// 1. GET /directors (public)
+// GET /directors (Publik)
 app.get('/directors', async (req, res, next) => {
-  const sql = "SELECT * FROM directors ORDER BY id ASC";
+  const sql = `SELECT * FROM directors ORDER BY id ASC`;
   try {
     const result = await db.query(sql);
     res.json(result.rows);
@@ -167,13 +167,13 @@ app.get('/directors', async (req, res, next) => {
   }
 });
 
-// 2. GET /directors/:id (public)
+// GET /directors/:id (Publik)
 app.get('/directors/:id', async (req, res, next) => {
-  const sql = "SELECT * FROM directors WHERE id = $1";
+  const sql = `SELECT * FROM directors WHERE id = $1`;
   try {
     const result = await db.query(sql, [req.params.id]);
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Director tidak ditemukan" });
+      return res.status(404).json({ error: 'Director tidak ditemukan' });
     }
     res.json(result.rows[0]);
   } catch (err) {
@@ -181,58 +181,67 @@ app.get('/directors/:id', async (req, res, next) => {
   }
 });
 
-// 3. POST /directors (login required)
+// POST /directors (HARUS LOGIN, role apa saja)
 app.post('/directors', authenticateToken, async (req, res, next) => {
-  const { name } = req.body;
-  if (!name) return res.status(400).json({ error: "name wajib diisi" });
+  const { name, birthYear } = req.body;
+  if (!name || !birthYear) {
+    return res.status(400).json({ error: 'name dan birthYear wajib diisi' });
+  }
 
-  const sql = "INSERT INTO directors(name) VALUES($1) RETURNING *";
+  const sql = `
+    INSERT INTO directors(name, birthYear)
+    VALUES ($1, $2)
+    RETURNING *
+  `;
+
   try {
-    const result = await db.query(sql, [name]);
+    const result = await db.query(sql, [name, birthYear]);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     next(err);
   }
 });
 
-// 4. PUT /directors/:id (admin-only)
-app.put(
-  '/directors/:id',
-  [authenticateToken, authorizeRole('admin')],
-  async (req, res, next) => {
-    const { name } = req.body;
-    const sql = "UPDATE directors SET name=$1 WHERE id=$2 RETURNING *";
+// PUT /directors/:id (HARUS ADMIN)
+app.put('/directors/:id', [authenticateToken, authorizeRole('admin')], async (req, res, next) => {
+  const { name, birthYear } = req.body;
 
-    try {
-      const result = await db.query(sql, [name, req.params.id]);
-      if (result.rowCount === 0) {
-        return res.status(404).json({ error: "Director tidak ditemukan" });
-      }
-      res.json(result.rows[0]);
-    } catch (err) {
-      next(err);
+  const sql = `
+    UPDATE directors
+    SET name=$1, birthYear=$2
+    WHERE id=$3
+    RETURNING *
+  `;
+
+  try {
+    const result = await db.query(sql, [name, birthYear, req.params.id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Director tidak ditemukan' });
     }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    next(err);
   }
-);
+});
 
-// 5. DELETE /directors/:id (admin-only)
-app.delete(
-  '/directors/:id',
-  [authenticateToken, authorizeRole('admin')],
-  async (req, res, next) => {
-    const sql = "DELETE FROM directors WHERE id=$1 RETURNING *";
+// DELETE /directors/:id (HARUS ADMIN)
+app.delete('/directors/:id', [authenticateToken, authorizeRole('admin')], async (req, res, next) => {
+  const sql = `DELETE FROM directors WHERE id=$1 RETURNING *`;
 
-    try {
-      const result = await db.query(sql, [req.params.id]);
-      if (result.rowCount === 0) {
-        return res.status(404).json({ error: "Director tidak ditemukan" });
-      }
-      res.status(204).send();
-    } catch (err) {
-      next(err);
+  try {
+    const result = await db.query(sql, [req.params.id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Director tidak ditemukan' });
     }
+
+    res.status(204).send();
+  } catch (err) {
+    next(err);
   }
-);
+});
 
 
 // === FALLBACK & ERROR HANDLING ===
